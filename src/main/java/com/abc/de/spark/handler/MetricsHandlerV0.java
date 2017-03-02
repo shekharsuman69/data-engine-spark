@@ -40,17 +40,19 @@ import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
 /**
- * This class serves as the handler of metrics data.
+ * This class serves as the handler of metrics data. Draft version - all logic
+ * embedded in this class.
+ * 
  * @author Shekhar Suman
  * @version 1.0
  * @since 2017-03-01
  *
  */
-public class MetricsHandler {
+public class MetricsHandlerV0 {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(MetricsHandler.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(MetricsHandlerV0.class);
 
-	private MetricsHandler() {
+	private MetricsHandlerV0() {
 	}
 
 	/**
@@ -167,7 +169,7 @@ public class MetricsHandler {
 
 				metricRdd.foreachPartition(new VoidFunction<Iterator<String>>() {
 					static final long serialVersionUID = -2799895985926065723L;
-					
+
 					@Override
 					public void call(Iterator<String> jsonList) throws Exception {
 						JSONParser parser = new JSONParser();
@@ -176,16 +178,16 @@ public class MetricsHandler {
 						SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmm");
 
 						while (jsonList.hasNext()) {
-							System.out.println("Parser Object:"+parser);
+							System.out.println("Parser Object:" + parser);
 							String jsonString = jsonList.next();
 							JSONArray jsonArray = (JSONArray) parser.parse(jsonString);
 							for (int j = 0; j < jsonArray.size(); j++) {
 								JSONObject json = (JSONObject) jsonArray.get(j);
 								try {
 									if (json != null)
-										System.out.println("JSON:"+json);
-										processEvent(json, metricsParser, sdf, metricsMeta.getValue(),
-												hostToAppMap.getValue(), hostToEnvMap.getValue());
+										System.out.println("JSON:" + json);
+									processEvent(json, metricsParser, sdf, metricsMeta.getValue(),
+											hostToAppMap.getValue(), hostToEnvMap.getValue());
 								} catch (Exception ex) {
 									LOGGER.error("Error in processEvent():" + json, ex);
 								}
@@ -253,16 +255,21 @@ public class MetricsHandler {
 						}
 
 						System.out.println("***Final data****");
-						System.out.println("metricId:" + metricId+"===reverseTime:" + reverseTime + "===env:" + env
-								+ "===appname:" + appname + "===host:" + host + "===instance:" + instance + "===data:" + data);
-						/*updateDatastore(metricId, reverseTime, env, appname, host, instance,
-								DataFormatter.serializeWithKryo(data.toBaseMetrics(), kryo));*/
+						System.out.println("metricId:" + metricId + "===reverseTime:" + reverseTime + "===env:" + env
+								+ "===appname:" + appname + "===host:" + host + "===instance:" + instance + "===data:"
+								+ data);
+						/*
+						 * updateDatastore(metricId, reverseTime, env, appname,
+						 * host, instance,
+						 * DataFormatter.serializeWithKryo(data.toBaseMetrics(),
+						 * kryo));
+						 */
 					}
 				}
-			//	postProcessing();
+				// postProcessing();
 			}
 		}
-		//processDatasourceMetrics(env, appname);
+		// processDatasourceMetrics(env, appname);
 	}
 
 	private static Connection getPhoenixConnection(Configuration config) throws Exception {

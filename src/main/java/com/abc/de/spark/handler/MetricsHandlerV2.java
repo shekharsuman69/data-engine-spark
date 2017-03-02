@@ -8,6 +8,8 @@ import java.util.Set;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SQLContext;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
@@ -18,8 +20,9 @@ import org.slf4j.LoggerFactory;
 
 import com.abc.de.config.Configuration;
 import com.abc.de.config.Constants;
-import com.abc.de.spark.functions.MetricsFunction;
-import com.abc.de.spark.functions.TupleFunctionV1;
+import com.abc.de.spark.functions.MetricsWriterFunction;
+import com.abc.de.spark.functions.MetricsRowFunction;
+import com.abc.de.spark.functions.TupleFunctionV2;
 import com.abc.de.spark.utils.EnvironmentMetadata;
 import com.abc.de.spark.utils.MetricsMetadata;
 
@@ -27,18 +30,19 @@ import kafka.serializer.StringDecoder;
 
 /**
  * This class serves as the handler for metrics data. It extends the BaseHandler
- * class and reads data of Metrics Kafka topic at regular batch interval.
- * Version 1.0 - (i) Uses map() function to format the data. (ii) Uses
- * traditional approach of Phoenix JDBC to insert the data into database.
+ * class and reads data of Metrics Kafka topic at regular batch interval.Version
+ * 2.0 - (i) Uses mapPartition() function to format the data as it is efficient
+ * than map(). (ii) Creates DStream of Row objects to provide schema around the
+ * data. (iii) Uses spark-phoenix connector to write the data into database.
  * 
  * @author Shekhar Suman
  * @version 1.0
  * @since 2017-03-01
  *
  */
-public class MetricsHandlerV1 extends BaseHandler {
+public class MetricsHandlerV2 extends BaseHandler {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(MetricsHandlerV1.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(MetricsHandlerV2.class);
 
 	/**
 	 * user defined constructor
@@ -46,7 +50,7 @@ public class MetricsHandlerV1 extends BaseHandler {
 	 * @param config
 	 *            configuration object
 	 */
-	public MetricsHandlerV1(Configuration config) {
+	public MetricsHandlerV2(Configuration config) {
 		super(config);
 	}
 
@@ -58,7 +62,7 @@ public class MetricsHandlerV1 extends BaseHandler {
 	public static void main(String[] args) {
 		String confPath = System.getProperty(Constants.DATA_ENGINE_PROPERTIES);
 		final Configuration config = new Configuration(confPath);
-		MetricsHandlerV1 handler = new MetricsHandlerV1(config);
+		MetricsHandlerV2 handler = new MetricsHandlerV2(config);
 		handler.execute();
 	}
 
@@ -71,6 +75,7 @@ public class MetricsHandlerV1 extends BaseHandler {
 		SparkConf conf = new SparkConf().setAppName(appName);
 		JavaSparkContext sc = new JavaSparkContext(conf);
 		JavaStreamingContext ssc = new JavaStreamingContext(sc, Durations.seconds(duration));
+		final SQLContext sqlContext = new org.apache.spark.sql.SQLContext(sc);
 
 		/*
 		 * Print all the application related configurations that are passed as
@@ -123,21 +128,34 @@ public class MetricsHandlerV1 extends BaseHandler {
 
 		/*
 		 * The raw data is in Base64 compressed format. Extract just the value
-		 * and uncompress it.
+		 * and uncompress it. Use mapPartition() instead of map() - map()
+		 * exercises the function being utilized at a per element level while
+		 * mapPartitions() exercises the function at the partition level. The
+		 * entire data set is passed to the mapPartition() function as an
+		 * Iterator. An Iterable is returned as an output. mapPartition() is
+		 * preferred over map() in case expensive operation is done in the
+		 * function. Example: Parser object is created, better way is to create
+		 * parser object for all elements at once, rather than element-wise.
 		 */
-		JavaDStream<String> metricStream = kafkaStream.map(new TupleFunctionV1());
+		JavaDStream<String> metricStream = kafkaStream.mapPartitions(new TupleFunctionV2());
 
 		/*
-		 * Iterate through each RDD in the DStream of uncompressed data
-		 * partition-wise and apply the processing logic of - parsing,
-		 * formatting and writing into Phoenix tables. Creating connection
-		 * object partition-wise is an efficient way to dealing with
-		 * connections.
+		 * Iterate through each partition, parse the JSON and create Row
+		 * objects. Row represents one row of output and is tied to a schema.
+		 * The final output is a DStream of Row.
 		 */
-		metricStream.foreachRDD(new MetricsFunction(this.config, metricsMeta.getValue(), hostToAppMap.getValue(),
-				hostToEnvMap.getValue()));
+		JavaDStream<Row> rowStream = metricStream.mapPartitions(
+				new MetricsRowFunction(metricsMeta.getValue(), hostToAppMap.getValue(), hostToEnvMap.getValue()));
 
-		metricStream.print();
+		metricStream.print(1);
+		rowStream.print(5);
+
+		/*
+		 * Iterate through each RDD in the DStream of Row and write it to
+		 * Phoenix table using spark-phoenix connector.
+		 * 
+		 */
+		rowStream.foreachRDD(new MetricsWriterFunction(this.config, sqlContext));
 
 		ssc.start();
 		ssc.awaitTermination();
