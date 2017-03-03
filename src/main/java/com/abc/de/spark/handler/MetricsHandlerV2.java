@@ -20,8 +20,8 @@ import org.slf4j.LoggerFactory;
 
 import com.abc.de.config.Configuration;
 import com.abc.de.config.Constants;
-import com.abc.de.spark.functions.MetricsWriterFunction;
-import com.abc.de.spark.functions.MetricsRowFunction;
+import com.abc.de.spark.functions.MetricsWriterFunctionV1;
+import com.abc.de.spark.functions.MetricsRowFunctionV1;
 import com.abc.de.spark.functions.TupleFunctionV2;
 import com.abc.de.spark.utils.EnvironmentMetadata;
 import com.abc.de.spark.utils.MetricsMetadata;
@@ -145,7 +145,7 @@ public class MetricsHandlerV2 extends BaseHandler {
 		 * The final output is a DStream of Row.
 		 */
 		JavaDStream<Row> rowStream = metricStream.mapPartitions(
-				new MetricsRowFunction(metricsMeta.getValue(), hostToAppMap.getValue(), hostToEnvMap.getValue()));
+				new MetricsRowFunctionV1(metricsMeta.getValue(), hostToAppMap.getValue(), hostToEnvMap.getValue()));
 
 		metricStream.print(1);
 		rowStream.print(5);
@@ -155,7 +155,7 @@ public class MetricsHandlerV2 extends BaseHandler {
 		 * Phoenix table using spark-phoenix connector.
 		 * 
 		 */
-		rowStream.foreachRDD(new MetricsWriterFunction(this.config, sqlContext));
+		rowStream.foreachRDD(new MetricsWriterFunctionV1(this.config, sqlContext));
 
 		ssc.start();
 		ssc.awaitTermination();

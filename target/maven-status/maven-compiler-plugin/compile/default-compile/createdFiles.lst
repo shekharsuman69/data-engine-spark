@@ -1,6 +1,5 @@
 com\abc\de\spark\functions\TupleFunctionV1.class
 com\abc\de\spark\utils\EnvironmentMetadata.class
-com\abc\de\spark\functions\MetricsRowFunction.class
 com\abc\de\spark\handler\MetricsHandlerV2.class
 com\abc\de\spark\handler\MetricsHandlerV0$2$1.class
 com\abc\de\spark\functions\MetricsFunction.class
@@ -9,7 +8,6 @@ com\abc\de\spark\handler\MetricsHandlerV0$3.class
 com\abc\de\spark\functions\MetricsFunction$1.class
 com\abc\de\spark\handler\MetricsHandlerV0$1.class
 com\abc\de\spark\utils\MetricsMetadata.class
-com\abc\de\spark\functions\MetricsWriterFunction.class
 com\abc\de\spark\handler\BaseHandler.class
 com\abc\de\spark\handler\MetricsHandlerV0.class
 com\abc\de\spark\handler\MetricsHandlerV1.class

@@ -42,7 +42,6 @@ public final class MetricsMetadata {
 			while (rs.next()) {
 				metaMap.put(rs.getString("NAME"), rs.getInt("ID"));
 			}
-			LOGGER.debug("Metrics Meta:" + metaMap);
 			ps.close();
 		} catch (Exception e) {
 			LOGGER.error("Error in getting metrics metadata ", e);
@@ -58,7 +57,7 @@ public final class MetricsMetadata {
 				LOGGER.error("Error in closing resources", e);
 			}
 		}
-		System.out.println("Metrics Meta:" + metaMap);
+		LOGGER.info("Metrics Meta:" + metaMap);
 		return metaMap;
 	}
 
