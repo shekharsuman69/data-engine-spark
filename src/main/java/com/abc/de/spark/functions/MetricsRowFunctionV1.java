@@ -157,6 +157,7 @@ public class MetricsRowFunctionV1 implements FlatMapFunction<Iterator<String>, R
 							Row row = RowFactory.create(metricId, reverseTime, env, appname, host, instance,
 									DataFormatter.serializeWithKryo(data.toBaseMetrics(), kryo));
 							rows.add(row);
+							LOGGER.info("Row schema:"+row.schema());
 						}
 					}
 				}
